@@ -98,6 +98,10 @@ if !exists('g:ollama_model_options')
                 \ 'max_tokens': 500
                 \ }
 endif
+if !exists('g:ollama_completion_systemprompt')
+    " empty means no system prompt, we use th built-in one
+    let g:ollama_completion_systemprompt = ''
+endif
 " Chat specific settings
 if !exists('g:ollama_chat_provider')
     " Provider for chat models: 'ollama' or 'openai'

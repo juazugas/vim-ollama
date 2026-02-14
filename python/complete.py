@@ -81,7 +81,7 @@ def fill_in_the_middle(config, prompt):
 
     return newprompt
 
-def generate_code_completion(config, prompt, baseurl, model, options):
+def generate_code_completion(config, prompt, systemprompt, baseurl, model, options):
     """ Code completion using Ollama REST API """
     headers = {
         'Content-Type': 'application/json',
@@ -98,9 +98,10 @@ def generate_code_completion(config, prompt, baseurl, model, options):
         # Use Ollama Codegen API in raw mode, bypassing the Ollama template processing
         data = {
             'model': model,
+            'system': systemprompt,
             'prompt': prompt,
             'stream': False,
-            'raw' : True,
+            'raw' : False,
             'options': options
         }
     else:
@@ -118,6 +119,7 @@ def generate_code_completion(config, prompt, baseurl, model, options):
         suffix = parts[1]
         data = {
             'model': model,
+            'system': systemprompt,
             'prompt': prompt,
             'suffix': suffix,
             'stream': False,
@@ -357,6 +359,8 @@ if __name__ == "__main__":
                             help="Use Ollama code generation suffix (experimental)")
         parser.add_argument('-k', '--keyname', default=None,
                             help="Credential name to lookup API key and password store")
+        parser.add_argument('-s', '--system', default=None,
+                            help="Use as ollama system prompt for the completion")
         args = parser.parse_args()
 
         log = OllamaLogger(args.log_dir, args.log_filename)
@@ -377,8 +381,9 @@ if __name__ == "__main__":
             else:
                 modelname = DEFAULT_MODEL
             baseurl = args.url or DEFAULT_HOST
+            systemprompt = args.system or ''
             config = load_config(modelname) if USE_CUSTOM_TEMPLATE else None
-            response = generate_code_completion(config, prompt, baseurl, modelname, options)
+            response = generate_code_completion(config, prompt, systemprompt, baseurl, modelname, options)
         elif args.provider == "mistral":
             if args.model:
                 modelname = args.model

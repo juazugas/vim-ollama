@@ -178,6 +178,38 @@ function! s:HandleExit(job, exit_code)
     let s:prompt = ''
 endfunction
 
+function! s:GetRecentChanges()
+    let l:list = []
+    " Get the last 3 positions from the change list
+    " changelist() returns a list of [line, col]
+    let l:changes = getchangelist()[0]
+    let l:total = len(l:changes)
+
+    for i in range(max([0, l:total - 3]), l:total - 1)
+        let l:lnum = l:changes[i].lnum
+        call add(l:list, trim(getline(l:lnum)))
+    endfor
+
+    return join(l:list, "; ")
+endfunction
+
+function! s:ConstructPromptHeader()
+    "let l:filename = bufname('')
+    let l:filename = expand('%:t')
+    let l:filetype = &filetype
+    let l:changes  = s:GetRecentChanges()
+    let l:clip     = getreg('"') " Gets the default register (clipboard)
+
+    " Truncate clipboard if it's too long to save tokens
+    let l:clip = len(l:clip) > 100 ? l:clip[:100] . "..." : l:clip
+
+" /* File: {filename} | {file_type} | Δ:{';'.join(changes[:3])} | 📋:{clipboard} */
+    let l:meta = printf("/* Use the following comment lines as context, not as content:\nFile: %s | %s | Δ: %s | 📋: %s */\n", 
+          \ l:filename, l:filetype, l:changes, l:clip)
+
+    return l:meta
+endfunction
+
 " Constructs a prompt for the completion request.
 function! s:ConstructPrompt()
     let l:line = line('.')
@@ -188,8 +220,12 @@ function! s:ConstructPrompt()
     let l:prefix_lines = getline(max([1, l:line - l:context_lines]), l:line - 1)
     let l:suffix_lines = getline(l:line + 1, min([line('$'), l:line + l:context_lines]))
 
+    " Construct Prompt Header
+    let l:header = s:ConstructPromptHeader()
+
+    let l:prefix = l:header
     " Combine prefix lines and current line's prefix part
-    let l:prefix = join(l:prefix_lines, "\n")
+    let l:prefix ..= join(l:prefix_lines, "\n")
     if !empty(l:prefix)
         let l:prefix ..= "\n"
     endif
@@ -247,6 +283,10 @@ function! ollama#GetSuggestion(timer)
             " add credentialname option for Mistral
             let l:command += [ '-k', g:ollama_mistral_credentialname ]
         endif
+    endif
+    " Add optional system prompt for completion
+    if !empty(g:ollama_completion_systemprompt)
+        let l:command += [ '-s', '"' % g:ollama_completion_systemprompt % '"']
     endif
     call ollama#logger#Debug("command=" .. join(l:command, " "))
     let l:job_options = {
